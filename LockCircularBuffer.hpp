@@ -5,6 +5,27 @@ LockCircularBuffer<T>::LockCircularBuffer() {
 }
 
 template<class T>
+inline bool LockCircularBuffer<T>::push_back(std::span<T> values) {
+	std::lock_guard lk(m_mutex);
+	if (values.size() <= m_space) {
+		const size_t idx = min(m_size - m_write_ptr, values.size());
+		for (size_t i = 0; i < idx; ++i)
+			m_buffer[m_write_ptr + i] = values[i];
+
+		//write none or remainder of array from start
+		const size_t idx2 = values.size() - idx;
+		for (size_t i = 0; i < idx2; ++i)
+			m_buffer[i] = values[idx + i];
+		m_write_ptr = increment(m_write_ptr, values.size());
+		m_space -= values.size();
+		debug_writes+= values.size();
+		return true;
+	}
+
+	return false;
+}
+
+template<class T>
 inline bool LockCircularBuffer<T>::push_back(T val) {
 	std::lock_guard lk(m_mutex);
 	if (m_space > 0) {		
@@ -13,13 +34,13 @@ inline bool LockCircularBuffer<T>::push_back(T val) {
 		m_space--;
 		debug_writes++;
 		return true;
-		}
+	}
 
 	return false;
 }
 
 template<class T>
-inline std::optional<T> LockCircularBuffer<T>::pop_front(void) { //use optional later
+inline std::optional<T> LockCircularBuffer<T>::pop_front(void) { 
 	std::lock_guard lk(m_mutex);
 	if (m_space == m_size) { //no elements
 		return std::nullopt;
@@ -32,8 +53,13 @@ inline std::optional<T> LockCircularBuffer<T>::pop_front(void) { //use optional 
 }
 
 template<class T>
-inline size_t LockCircularBuffer<T>::increment(size_t idx) {
-	return ((idx + 1) % m_size);
+inline size_t LockCircularBuffer<T>::increment(size_t idx, size_t count) const {
+	return ((idx + count) % m_size);
+}
+
+template<class T>
+inline size_t LockCircularBuffer<T>::decrement(size_t idx, size_t count) const {
+	return ((idx - count) % m_size);
 }
 
 template<class T>
