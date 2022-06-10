@@ -1,14 +1,16 @@
 #include "LockCircularBuffer.h"
 template<class T>
-LockCircularBuffer<T>::LockCircularBuffer() {
+LockCircularBuffer<T>::LockCircularBuffer() noexcept {
 
 }
 
 template<class T>
-inline bool LockCircularBuffer<T>::push_back(std::span<T> values) {
+inline bool LockCircularBuffer<T>::push_back(std::span<T> values) noexcept {
 	std::lock_guard lk(m_mutex);
+	//check for space if available write data
 	if (values.size() <= m_space) {
 		const size_t idx = min(m_size - m_write_ptr, values.size());
+		//either write all elements or to just end of array
 		for (size_t i = 0; i < idx; ++i)
 			m_buffer[m_write_ptr + i] = values[i];
 
@@ -16,6 +18,7 @@ inline bool LockCircularBuffer<T>::push_back(std::span<T> values) {
 		const size_t idx2 = values.size() - idx;
 		for (size_t i = 0; i < idx2; ++i)
 			m_buffer[i] = values[idx + i];
+
 		m_write_ptr = increment(m_write_ptr, values.size());
 		m_space -= values.size();
 		debug_writes+= values.size();
@@ -26,7 +29,7 @@ inline bool LockCircularBuffer<T>::push_back(std::span<T> values) {
 }
 
 template<class T>
-inline bool LockCircularBuffer<T>::push_back(T val) {
+inline bool LockCircularBuffer<T>::push_back(T val) noexcept {
 	std::lock_guard lk(m_mutex);
 	if (m_space > 0) {		
 		m_buffer[m_write_ptr] = val;
@@ -40,7 +43,7 @@ inline bool LockCircularBuffer<T>::push_back(T val) {
 }
 
 template<class T>
-inline std::optional<T> LockCircularBuffer<T>::pop_front(void) { 
+inline std::optional<T> LockCircularBuffer<T>::pop_front(void) noexcept {
 	std::lock_guard lk(m_mutex);
 	if (m_space == m_size) { //no elements
 		return std::nullopt;
@@ -53,16 +56,16 @@ inline std::optional<T> LockCircularBuffer<T>::pop_front(void) {
 }
 
 template<class T>
-inline size_t LockCircularBuffer<T>::increment(size_t idx, size_t count) const {
+inline size_t LockCircularBuffer<T>::increment(size_t idx, size_t count) const noexcept {
 	return ((idx + count) % m_size);
 }
 
 template<class T>
-inline size_t LockCircularBuffer<T>::decrement(size_t idx, size_t count) const {
+inline size_t LockCircularBuffer<T>::decrement(size_t idx, size_t count) const noexcept {
 	return ((idx - count) % m_size);
 }
 
 template<class T>
-inline const size_t LockCircularBuffer<T>::get_size() const {
+inline const size_t LockCircularBuffer<T>::get_size() const noexcept {
 	return m_size;
 }

@@ -1,22 +1,25 @@
 #include "AtomicCircularBuffer.h"
 template<class T>
-AtomicCircularBuffer<T>::AtomicCircularBuffer() {
+AtomicCircularBuffer<T>::AtomicCircularBuffer() noexcept {
 
 }
 
 template<class T>
-inline bool AtomicCircularBuffer<T>::push_back(std::span<T> values) {
+inline bool AtomicCircularBuffer<T>::push_back(std::span<T> values) noexcept {
+	//perform weak check for space, space is limited to m_size-1 (can be removed)
 	if (m_space > values.size() && values.size() < m_size) {
+		//perform stronger check assuming write_ptr value, if changed write does not occur
+		//if read_ptr has changed then more space is available and no problem occurs
 		size_t  write_ptr = m_write_ptr;
 		size_t  read_ptr = m_read_ptr;
 		size_t  write_ptr_next = increment(write_ptr, values.size());
-		bool  case1 = ((write_ptr < read_ptr) && (write_ptr_next >= read_ptr)); //juming over read pointer
-		bool  case2 = ((write_ptr > read_ptr) && ((values.size() -(write_ptr - read_ptr)) < m_size)); //
-		if (case1 | case2)
+		bool  fail_case1 = ((write_ptr < read_ptr) && (write_ptr_next >= read_ptr)); //juming over read pointer
+		bool  fail_case2 = ((write_ptr > read_ptr) && ((values.size() -(write_ptr - read_ptr)) < m_size)); //
+		
+		if (fail_case1 | fail_case2)
 			return false;
-		//if (write_ptr_next == m_read_ptr)//this loses one slot but makes implementation easier
-		//	return false;
 
+		//check if write_ptr has been changed if not space has been allocated to us
 		if (m_write_ptr.compare_exchange_weak(write_ptr, write_ptr_next)) {
 			//either write all elements or to just end of array
 			const size_t idx = min(m_size- write_ptr, values.size());
@@ -27,11 +30,8 @@ inline bool AtomicCircularBuffer<T>::push_back(std::span<T> values) {
 			const size_t idx2 = values.size() - idx;
 			for (size_t i = 0; i < idx2; ++i)
 				m_buffer[i] = values[idx+i];
-			//printf("pointer = %i\n", write_ptr);
-			//m_space.store(decrement(m_space), std::memory_order_release);  //memory_order_release = nothing before this can be done after in memory
-			//m_space = decrement(m_space);
+
 			m_space.fetch_sub(values.size(), std::memory_order_release);
-			//m_space--;
 			debug_writes+=values.size();
 			return true;
 		}
@@ -41,20 +41,20 @@ inline bool AtomicCircularBuffer<T>::push_back(std::span<T> values) {
 }
 
 template<class T>
-inline bool AtomicCircularBuffer<T>::push_back(T val){
-	if (m_space > 0) {
+inline bool AtomicCircularBuffer<T>::push_back(T val) noexcept {
+	//perform weak check for space, space is limited to m_size-1 (can be removed)
+	if (m_space > 1) {
+		//perform stronger check assuming write_ptr value, if changed write does not occur
+		//if read_ptr has changed then more space is available and no problem occurs
 		size_t  write_ptr = m_write_ptr;
 		size_t  write_ptr_next = increment(write_ptr);
 		if(write_ptr_next == m_read_ptr )//this loses one slot but makes implementation easier
 			return false;
 
+		//check if write_ptr has been changed if not space has been allocated to us
 		if (m_write_ptr.compare_exchange_weak(write_ptr, write_ptr_next)) {
 			m_buffer[write_ptr] = val;
-			//printf("pointer = %i\n", write_ptr);
-			//m_space.store(decrement(m_space), std::memory_order_release);  //memory_order_release = nothing before this can be done after in memory
-			//m_space = decrement(m_space);
 			m_space.fetch_sub(1, std::memory_order_release);
-			//m_space--;
 			debug_writes++;
 			return true;
 		}
@@ -66,14 +66,17 @@ inline bool AtomicCircularBuffer<T>::push_back(T val){
 
 
 template<class T>
-inline std::optional<T> AtomicCircularBuffer<T>::pop_front(void){ 
+inline std::optional<T> AtomicCircularBuffer<T>::pop_front(void) noexcept {
+	//perform weak check (can be removed)
 	if (m_space.load(std::memory_order_acquire) == m_size) { //no elements memory_order_acquire= nothing after this can be done before in memory
 		return std::nullopt;
 	}
+	//perform checks assuming read_ptr 
 	size_t  read_ptr = m_read_ptr;
 	size_t  read_ptr_next = increment(read_ptr);
 	if (read_ptr == m_write_ptr)
 		return std::nullopt;
+	//if read_ptr unchanged then value can be read
 	if (m_read_ptr.compare_exchange_weak(read_ptr, read_ptr_next)) {
 		m_space++;
 		debug_reads++;
@@ -83,16 +86,16 @@ inline std::optional<T> AtomicCircularBuffer<T>::pop_front(void){
 }
 
 template<class T>
-inline size_t AtomicCircularBuffer<T>::increment(size_t idx, size_t count) const {
+inline size_t AtomicCircularBuffer<T>::increment(size_t idx, size_t count) const noexcept {
 	return ((idx+ count) %m_size);
 }
 
 template<class T>
-inline size_t AtomicCircularBuffer<T>::decrement(size_t idx, size_t count) const {
+inline size_t AtomicCircularBuffer<T>::decrement(size_t idx, size_t count) const noexcept {
 	return ((idx - count) % m_size);
 }
 
 template<class T>
-inline const size_t AtomicCircularBuffer<T>::get_size() const {
+inline const size_t AtomicCircularBuffer<T>::get_size() const noexcept {
 	return m_size;
 }
