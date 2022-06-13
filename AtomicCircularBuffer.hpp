@@ -78,7 +78,10 @@ inline std::optional<T> AtomicCircularBuffer<T>::pop_front(void) noexcept {
 	size_t  read_ptr_next = increment(read_ptr);
 	if (read_ptr == m_write_ptr)
 		return value;
-	value = m_buffer[read_ptr]; //read value now as when read_ptr updated value could be overwritten by write
+	//read value now as when read_ptr updated value could be overwritten by write
+	//value = m_buffer[read_ptr];
+	value.emplace(m_buffer[read_ptr]);
+ 
 	//if read_ptr unchanged then value can be read
 	if (m_read_ptr.compare_exchange_weak(read_ptr, read_ptr_next)) {
 		m_space++;

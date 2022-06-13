@@ -53,7 +53,7 @@ inline std::optional<T> LockCircularBuffer<T>::pop_front(void) noexcept {
 	debug_reads++;
 	size_t read_ptr = m_read_ptr;
 	m_read_ptr = increment(m_read_ptr);
-	value = m_buffer[read_ptr];
+	value.emplace(m_buffer[read_ptr]);
 	return value;
 }
 
