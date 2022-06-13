@@ -45,14 +45,16 @@ inline bool LockCircularBuffer<T>::push_back(T val) noexcept {
 template<class T>
 inline std::optional<T> LockCircularBuffer<T>::pop_front(void) noexcept {
 	std::lock_guard lk(m_mutex);
+	std::optional<T> value{};
 	if (m_space == m_size) { //no elements
-		return std::nullopt;
+		return value;
 	}
 	m_space++;
 	debug_reads++;
 	size_t read_ptr = m_read_ptr;
 	m_read_ptr = increment(m_read_ptr);
-	return m_buffer[read_ptr];
+	value = m_buffer[read_ptr];
+	return value;
 }
 
 template<class T>

@@ -69,15 +69,16 @@ inline bool AtomicCircularBuffer<T>::push_back(T val) noexcept {
 template<class T>
 inline std::optional<T> AtomicCircularBuffer<T>::pop_front(void) noexcept {
 	//perform weak check (can be removed)
+	std::optional<T> value{};
 	if (m_space.load(std::memory_order_acquire) == m_size) { //no elements memory_order_acquire= nothing after this can be done before in memory
-		return std::nullopt;
+		return value;
 	}
 	//perform checks assuming read_ptr 
 	size_t  read_ptr = m_read_ptr;
 	size_t  read_ptr_next = increment(read_ptr);
 	if (read_ptr == m_write_ptr)
-		return std::nullopt;
-	T value = m_buffer[read_ptr]; //read value now as when read_ptr updated value could be overwritten by write
+		return value;
+	value = m_buffer[read_ptr]; //read value now as when read_ptr updated value could be overwritten by write
 	//if read_ptr unchanged then value can be read
 	if (m_read_ptr.compare_exchange_weak(read_ptr, read_ptr_next)) {
 		m_space++;
@@ -85,7 +86,7 @@ inline std::optional<T> AtomicCircularBuffer<T>::pop_front(void) noexcept {
 		//return m_buffer[read_ptr];
 		return value;
 	}
-	return std::nullopt;
+	return value;
 }
 
 template<class T>
