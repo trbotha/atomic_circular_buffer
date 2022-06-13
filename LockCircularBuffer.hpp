@@ -15,8 +15,8 @@ inline bool LockCircularBuffer<T>::push_back(std::span<T> values) noexcept {
 			m_buffer[m_write_ptr + i] = values[i];
 
 		//write none or remainder of array from start
-		const size_t idx2 = values.size() - idx;
-		for (size_t i = 0; i < idx2; ++i)
+		const int32_t idx2 = (int32_t)values.size() - idx;
+		for (int32_t i = 0; i < idx2; ++i)
 			m_buffer[i] = values[idx + i];
 
 		m_write_ptr = increment(m_write_ptr, values.size());

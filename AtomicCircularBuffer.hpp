@@ -7,7 +7,7 @@ AtomicCircularBuffer<T>::AtomicCircularBuffer() noexcept {
 template<class T>
 inline bool AtomicCircularBuffer<T>::push_back(std::span<T> values) noexcept {
 	//perform weak check for space, space is limited to m_size-1 (can be removed)
-	if (m_space > values.size() && values.size() < m_size) {
+	if (m_space > values.size()) {
 		//perform stronger check assuming write_ptr value, if changed write does not occur
 		//if read_ptr has changed then more space is available and no problem occurs
 		size_t  write_ptr = m_write_ptr;
@@ -27,8 +27,9 @@ inline bool AtomicCircularBuffer<T>::push_back(std::span<T> values) noexcept {
 				m_buffer[write_ptr+i] = values[i];
 
 			//write none or remainder of array from start
-			const size_t idx2 = values.size() - idx;
-			for (size_t i = 0; i < idx2; ++i)
+			//signed to prevent overflow.
+			const int32_t idx2 = (int32_t)values.size() - idx;
+			for (int32_t i = 0; i < idx2; ++i)
 				m_buffer[i] = values[idx+i];
 
 			m_space.fetch_sub(values.size(), std::memory_order_release);
@@ -76,11 +77,13 @@ inline std::optional<T> AtomicCircularBuffer<T>::pop_front(void) noexcept {
 	size_t  read_ptr_next = increment(read_ptr);
 	if (read_ptr == m_write_ptr)
 		return std::nullopt;
+	T value = m_buffer[read_ptr]; //read value now as when read_ptr updated value could be overwritten by write
 	//if read_ptr unchanged then value can be read
 	if (m_read_ptr.compare_exchange_weak(read_ptr, read_ptr_next)) {
 		m_space++;
 		debug_reads++;
-		return m_buffer[read_ptr];
+		//return m_buffer[read_ptr];
+		return value;
 	}
 	return std::nullopt;
 }
