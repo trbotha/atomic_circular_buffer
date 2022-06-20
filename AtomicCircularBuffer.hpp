@@ -5,7 +5,7 @@ AtomicCircularBuffer<T>::AtomicCircularBuffer() noexcept {
 }
 
 template<class T>
-inline bool AtomicCircularBuffer<T>::push_back(std::span<T> values) noexcept {
+bool AtomicCircularBuffer<T>::push_back(std::span<T> values) noexcept {
 	//perform weak check for space, space is limited to m_size-1 (can be removed)
 	if (m_space > values.size()) {
 		//perform stronger check assuming write_ptr value, if changed write does not occur
@@ -42,7 +42,7 @@ inline bool AtomicCircularBuffer<T>::push_back(std::span<T> values) noexcept {
 }
 
 template<class T>
-inline bool AtomicCircularBuffer<T>::push_back(T val) noexcept {
+bool AtomicCircularBuffer<T>::push_back(T val) noexcept {
 	//perform weak check for space, space is limited to m_size-1 (can be removed)
 	if (m_space > 1) {
 		//perform stronger check assuming write_ptr value, if changed write does not occur
@@ -67,9 +67,9 @@ inline bool AtomicCircularBuffer<T>::push_back(T val) noexcept {
 
 
 template<class T>
-inline std::optional<T> AtomicCircularBuffer<T>::pop_front(void) noexcept {
+std::optional<T> AtomicCircularBuffer<T>::pop_front(void) noexcept {
 	//perform weak check (can be removed)
-	std::optional<T> value{};
+	std::optional<T> value;
 	if (m_space.load(std::memory_order_acquire) == m_size) { //no elements memory_order_acquire= nothing after this can be done before in memory
 		return value;
 	}
@@ -93,12 +93,12 @@ inline std::optional<T> AtomicCircularBuffer<T>::pop_front(void) noexcept {
 }
 
 template<class T>
-inline size_t AtomicCircularBuffer<T>::increment(size_t idx, size_t count) const noexcept {
+size_t AtomicCircularBuffer<T>::increment(size_t idx, size_t count) const noexcept {
 	return ((idx+ count) %m_size);
 }
 
 template<class T>
-inline size_t AtomicCircularBuffer<T>::decrement(size_t idx, size_t count) const noexcept {
+size_t AtomicCircularBuffer<T>::decrement(size_t idx, size_t count) const noexcept {
 	return ((idx - count) % m_size);
 }
 
